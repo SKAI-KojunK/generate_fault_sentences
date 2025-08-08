@@ -9,7 +9,7 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import re
 from typing import Dict, List, Any, Tuple
 import pandas as pd
-from config import evaluation_config, inference_config
+from config import evaluation_config, inference_config, training_config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,22 +24,23 @@ class ModelEvaluator:
         """파인튜닝된 모델을 로드합니다."""
         logger.info(f"모델 로딩 중: {self.model_path}")
         
-        # 토크나이저 로드
+        # 토크나이저 로드 (학습에 사용한 동일 베이스 모델)
         self.tokenizer = AutoTokenizer.from_pretrained(
-            "mistralai/Mistral-7B-Instruct-v0.3",
+            training_config.model_name,
             trust_remote_code=True
         )
         
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         
-        # 모델 로드
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_path,
+        # 베이스 모델 로드 후 LoRA 어댑터 적용 (PEFT)
+        base_model = AutoModelForCausalLM.from_pretrained(
+            training_config.model_name,
             torch_dtype=torch.float16,
             device_map="auto",
             trust_remote_code=True,
         )
+        self.model = PeftModel.from_pretrained(base_model, self.model_path)
         
         logger.info("모델 로딩 완료")
         

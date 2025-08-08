@@ -6,6 +6,7 @@ RunPod 환경 설정 및 파인튜닝 실행 스크립트
 import os
 import subprocess
 import sys
+import argparse
 
 def check_gpu():
     """GPU 정보 확인"""
@@ -22,24 +23,76 @@ def check_gpu():
         print("❌ PyTorch가 설치되지 않았습니다.")
         return False
 
-def install_requirements():
-    """필요한 라이브러리 설치"""
+def install_requirements(requirements_file: str = None):
+    """필요한 라이브러리 설치: 프로젝트 루트의 requirements.txt를 사용"""
     print("📦 필요한 라이브러리 설치 중...")
+
+    # 프로젝트 루트 기준 requirements 경로 탐색
+    candidate_paths = []
+    if requirements_file:
+        candidate_paths.append(requirements_file)
+    candidate_paths.extend([
+        "../requirements.txt",
+        "../../requirements.txt",
+        "requirements.txt",
+        "mistral_finetuning/requirements.txt",
+    ])
+
+    req_path = None
+    for path in candidate_paths:
+        if os.path.exists(path):
+            req_path = path
+            break
+
+    if not req_path:
+        print("  ❌ requirements.txt를 찾을 수 없습니다. 수동 설치가 필요합니다.")
+        return
+
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "-r", req_path])
+        print(f"  ✅ requirements 설치 완료: {req_path}")
+    except subprocess.CalledProcessError:
+        print(f"  ❌ requirements 설치 실패: {req_path}")
+
+def install_system_dependencies():
+    """시스템 의존성 설치"""
+    print("🔧 시스템 의존성 설치 중...")
     
-    packages = [
-        "peft>=0.6.0",
-        "bitsandbytes>=0.41.0", 
-        "trl>=0.7.0",
-        "datasets>=2.14.0",
-        "accelerate>=0.24.0"
-    ]
-    
-    for package in packages:
+    try:
+        # tmux 설치 (세션 관리용)
+        subprocess.check_call(["apt", "update", "-qq"])
+        subprocess.check_call(["apt", "install", "-y", "tmux"])
+        print("  ✅ tmux 설치 완료")
+    except subprocess.CalledProcessError:
+        print("  ⚠️ tmux 설치 실패 (선택사항)")
+
+def setup_huggingface_auth(token: str = None):
+    """Hugging Face 인증 설정 (비대화형 지원)
+
+    우선순위: 함수 인자 token > 환경변수 HUGGING_FACE_HUB_TOKEN > 로그인 생략
+    """
+    print("🔐 Hugging Face 인증 설정...")
+
+    # 경고/워닝 억제 환경 변수
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    provided_token = token or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+    if provided_token:
+        # 환경 변수 설정 및 프로그램 방식 로그인
+        os.environ["HUGGING_FACE_HUB_TOKEN"] = provided_token
         try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", package])
-            print(f"  ✅ {package.split('>=')[0]} 설치 완료")
-        except subprocess.CalledProcessError:
-            print(f"  ❌ {package} 설치 실패")
+            from huggingface_hub import login
+            login(token=provided_token, add_to_git_credential=True)
+            print("  ✅ Hugging Face 토큰 설정 및 로그인 완료")
+        except Exception:
+            # CLI fallback
+            try:
+                subprocess.check_call(["huggingface-cli", "login", "--token", provided_token, "--add-to-git-credential"], stdout=subprocess.DEVNULL)
+                print("  ✅ Hugging Face CLI 로그인 완료")
+            except Exception:
+                print("  ⚠️ 토큰 로그인 실패. 환경 변수만 설정되었습니다.")
+    else:
+        print("  ℹ️ HUGGING_FACE_HUB_TOKEN 미설정. private 모델이 아니면 계속 진행 가능합니다.")
 
 def check_data_file():
     """데이터 파일 확인"""
@@ -96,29 +149,41 @@ def main():
     print("🚀 RunPod 파인튜닝 환경 설정 시작")
     print("=" * 50)
     
-    # 1. GPU 확인
+    parser = argparse.ArgumentParser(description="RunPod 환경 설정")
+    parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face 액세스 토큰")
+    parser.add_argument("--requirements", type=str, default=None, help="requirements.txt 경로")
+    args = parser.parse_args()
+    
+    # 1. 시스템 의존성 설치
+    install_system_dependencies()
+    
+    # 2. GPU 확인
     if not check_gpu():
         print("❌ GPU를 사용할 수 없습니다. CPU 환경에서는 파인튜닝이 매우 느립니다.")
         return
     
-    # 2. 라이브러리 설치
-    install_requirements()
+    # 3. 라이브러리 설치
+    install_requirements(requirements_file=args.requirements)
     
-    # 3. 디렉토리 설정
+    # 4. Hugging Face 인증 설정
+    setup_huggingface_auth(token=args.hf_token)
+    
+    # 5. 디렉토리 설정
     print("\n📁 디렉토리 설정 중...")
     setup_directories()
     
-    # 4. 데이터 파일 확인
+    # 6. 데이터 파일 확인
     print("\n📊 데이터 파일 확인 중...")
     data_file = check_data_file()
     
     if data_file:
-        # 5. 데이터 전처리
+        # 7. 데이터 전처리
         if run_preprocessing(data_file):
             print("\n✅ 환경 설정 완료!")
             print("🎯 이제 다음 중 하나를 선택하여 파인튜닝을 시작하세요:")
-            print("  1. Jupyter 노트북: jupyter notebook finetuning_notebook.ipynb")
-            print("  2. Python 스크립트: python run_training.py")
+            print("  1. tmux 세션: tmux new -s finetuning")
+            print("  2. Python 스크립트: python train.py")
+            print("  3. 백그라운드 실행: nohup python train.py > training.log 2>&1 &")
         else:
             print("\n❌ 데이터 전처리 실패")
     else:

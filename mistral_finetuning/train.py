@@ -22,7 +22,7 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import re
 from typing import Dict, List, Any
 import wandb
-from config import training_config
+from config import training_config, TrainingConfig
 
 # 로깅 설정
 logging.basicConfig(
@@ -33,7 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class MistralFineTuner:
-    def __init__(self, config: training_config):
+    def __init__(self, config: TrainingConfig):
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         logger.info(f"Using device: {self.device}")
@@ -193,6 +193,7 @@ class MistralFineTuner:
             load_best_model_at_end=True,
             metric_for_best_model="eval_loss",
             greater_is_better=False,
+            gradient_checkpointing=True,  # RunPod 메모리 최적화
             logging_dir=self.config.logging_dir,
             report_to=self.config.report_to,
             remove_unused_columns=self.config.remove_unused_columns,
@@ -200,7 +201,6 @@ class MistralFineTuner:
             dataloader_pin_memory=self.config.dataloader_pin_memory,
             dataloader_num_workers=self.config.dataloader_num_workers,
             ddp_find_unused_parameters=self.config.ddp_find_unused_parameters,
-            resume_from_checkpoint=self.config.resume_from_checkpoint,
         )
         
         # 트레이너 초기화
@@ -229,7 +229,9 @@ class MistralFineTuner:
         
         try:
             # 학습 실행
-            train_result = self.trainer.train()
+            train_result = self.trainer.train(
+                resume_from_checkpoint=self.config.resume_from_checkpoint
+            )
             
             # 최종 모델 저장
             self.trainer.save_model()

@@ -5,7 +5,7 @@ from typing import Optional
 @dataclass
 class TrainingConfig:
     # 모델 설정
-    model_name: str = "mistralai/Mistral-7B-Instruct-v0.3"
+    model_name: str = "mistralai/Mistral-7B-Instruct-v0.3"  
     model_revision: str = "main"
     
     # 데이터 설정
@@ -16,9 +16,9 @@ class TrainingConfig:
     # 학습 설정
     output_dir: str = "checkpoints"
     num_train_epochs: int = 3
-    per_device_train_batch_size: int = 4
-    per_device_eval_batch_size: int = 4
-    gradient_accumulation_steps: int = 4
+    per_device_train_batch_size: int = 2  # RunPod 메모리 최적화: 4 → 2
+    per_device_eval_batch_size: int = 2   # RunPod 메모리 최적화: 4 → 2
+    gradient_accumulation_steps: int = 8  # RunPod 메모리 최적화: 4 → 8 (실제 배치 크기 16 유지)
     learning_rate: float = 2e-4
     weight_decay: float = 0.01
     warmup_steps: int = 100
@@ -40,12 +40,12 @@ class TrainingConfig:
     bnb_4bit_use_double_quant: bool = True
     
     # 기타 설정
-    max_seq_length: int = 2048
+    max_seq_length: int = 1024  # RunPod 메모리 최적화: 2048 → 1024 (실제 데이터 최대 39 토큰)
     dataloader_pin_memory: bool = False
     remove_unused_columns: bool = False
     group_by_length: bool = True
     ddp_find_unused_parameters: bool = False
-    dataloader_num_workers: int = 4
+    dataloader_num_workers: int = 0  # RunPod 메모리 최적화: 4 → 0
     
     # 체크포인트 및 복구 설정
     resume_from_checkpoint: Optional[str] = None
