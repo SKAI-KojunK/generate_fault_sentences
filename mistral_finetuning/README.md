@@ -4,32 +4,26 @@
 
 ## 🚀 빠른 시작
 
+**📖 최신 가이드**: [RUNPOD_QUICKSTART.md](../RUNPOD_QUICKSTART.md) - **가장 간단한 실행 방법**
+
 ### RunPod에서 실행 (권장)
 
-1. **RunPod Pod 생성**
-   - GPU: RTX L40 (48GB VRAM) 또는 RTX 4090 (24GB VRAM)
-   - 템플릿: PyTorch 2.0
-   - 스토리지: 50GB
+```bash
+# 1. 프로젝트 업로드 후
+cd /workspace/generate_fault_sentences
 
-2. **파일 업로드**
-   ```bash
-   # 프로젝트 파일들을 RunPod에 업로드
-   cd mistral_finetuning
-   ```
+# 2. HF 토큰 설정 (.env 파일)
+cp .env.example .env
+# .env 파일에 실제 토큰 입력
 
-3. **환경 설정**
-   ```bash
-   python runpod_setup.py
-   ```
+# 3. 원샷 설정 (설치+전처리)
+python mistral_finetuning/runpod_setup.py
 
-4. **파인튜닝 실행**
-   ```bash
-   # tmux 세션에서 실행 (권장)
-   tmux new -s finetuning
-   python train.py
-   ```
+# 4. 파인튜닝 실행
+python mistral_finetuning/run_training.py --epochs 3 --batch_size 4
+```
 
-자세한 가이드는 [RUNPOD_GUIDE.md](RUNPOD_GUIDE.md)를 참조하세요.
+자세한 내용은 [RUNPOD_QUICKSTART.md](../RUNPOD_QUICKSTART.md)를 참조하세요.
 
 ### 로컬에서 실행
 

@@ -7,6 +7,34 @@ import os
 import subprocess
 import sys
 import argparse
+from pathlib import Path
+
+def load_env_file():
+    """Load environment variables from .env file"""
+    env_paths = [
+        Path(__file__).parent.parent / ".env",  # 프로젝트 루트/.env
+        Path(__file__).parent / ".env",         # mistral_finetuning/.env
+        Path.cwd() / ".env"                     # 현재 디렉토리/.env
+    ]
+    
+    for env_path in env_paths:
+        if env_path.exists():
+            print(f"  ✅ .env 파일 발견: {env_path}")
+            with open(env_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        value = value.strip().strip('"').strip("'")
+                        if key and value:
+                            os.environ[key] = value
+                            if key == "HUGGING_FACE_HUB_TOKEN":
+                                print(f"  ✅ HF 토큰 환경변수 설정 완료")
+            return True
+    
+    print("  ℹ️ .env 파일을 찾을 수 없습니다. 환경변수나 인자로 토큰을 설정하세요.")
+    return False
 
 def check_gpu():
     """GPU 정보 확인"""
@@ -149,6 +177,10 @@ def main():
     print("🚀 RunPod 파인튜닝 환경 설정 시작")
     print("=" * 50)
     
+    # 0. .env 파일 로드 (제일 먼저)
+    print("📄 환경변수 로드 중...")
+    load_env_file()
+    
     parser = argparse.ArgumentParser(description="RunPod 환경 설정")
     parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face 액세스 토큰")
     parser.add_argument("--requirements", type=str, default=None, help="requirements.txt 경로")
@@ -165,7 +197,7 @@ def main():
     # 3. 라이브러리 설치
     install_requirements(requirements_file=args.requirements)
     
-    # 4. Hugging Face 인증 설정
+    # 4. Hugging Face 인증 설정 (.env에서 로드된 토큰 또는 인자 토큰 사용)
     setup_huggingface_auth(token=args.hf_token)
     
     # 5. 디렉토리 설정
