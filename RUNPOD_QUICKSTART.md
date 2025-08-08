@@ -12,7 +12,7 @@
 **방법 1: Git 클론 (권장)**
 ```bash
 cd /workspace
-git clone <YOUR_REPO_URL> generate_fault_sentences
+git clone https://github.com/SKAI-KojunK/generate_fault_sentences.git
 cd generate_fault_sentences
 ```
 
