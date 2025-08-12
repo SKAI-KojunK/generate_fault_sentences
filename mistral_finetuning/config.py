@@ -92,7 +92,7 @@ class EvaluationConfig:
 @dataclass
 class InferenceConfig:
     # 추론 설정
-    model_path: str = "checkpoints/best"
+    model_path: str = "checkpoints"
     max_new_tokens: int = 512
     temperature: float = 0.1
     top_p: float = 0.9
